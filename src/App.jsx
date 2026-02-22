@@ -227,21 +227,33 @@ const GalaxyHub = ({ onSelect }) => {
     const dust = new THREE.Points(dg, new THREE.PointsMaterial({ size: .1, color: 0x7799ff, transparent: true, opacity: .3 }));
     scene.add(dust);
 
-    // lighting
+    // lighting — strong multi-point for glossy specular look
     scene.add(new THREE.AmbientLight(0xffffff, .18));
-    const ml = new THREE.PointLight(0xffffff, 2.0, 0); ml.position.set(18, 12, 18); scene.add(ml);
-    const fl2 = new THREE.PointLight(0x4488ff, .7, 0); fl2.position.set(-18, -8, -10); scene.add(fl2);
-    const fl3 = new THREE.PointLight(0xff44aa, .4, 0); fl3.position.set(0, 18, 6); scene.add(fl3);
-    const fl4 = new THREE.PointLight(0x22ffaa, .35, 0); fl4.position.set(10, -12, 8); scene.add(fl4);
+    const ml = new THREE.PointLight(0xffffff, 5.5, 0); ml.position.set(18, 14, 22); scene.add(ml);
+    const fl2 = new THREE.PointLight(0x5599ff, 1.2, 0); fl2.position.set(-18, -8, -10); scene.add(fl2);
+    const fl3 = new THREE.PointLight(0xff44aa, .7, 0); fl3.position.set(0, 18, 6); scene.add(fl3);
+    const fl4 = new THREE.PointLight(0x22ffaa, .5, 0); fl4.position.set(10, -12, 8); scene.add(fl4);
+    // Key directional light for crisp specular highlights
+    const dKey = new THREE.DirectionalLight(0xffffff, 2.2); dKey.position.set(1.2, 1, 1.8); scene.add(dKey);
+    // Rim light from below-left for dramatic glow
+    const rim = new THREE.PointLight(0xffffff, 2.4, 0); rim.position.set(-10, 5, 15); scene.add(rim);
 
     // planets
     const planets = WDEF.map(def => {
       const grp = new THREE.Group(); grp.position.set(...def.pos); scene.add(grp);
       const ax = new THREE.Vector3(...def.ax).normalize();
-      const cMat = new THREE.MeshPhongMaterial({ color: def.hc, emissive: def.he, emissiveIntensity: 0.55, specular: def.hx, shininess: 45 });
+      const cMat = new THREE.MeshPhongMaterial({ color: def.hc, emissive: def.he, emissiveIntensity: 0.4, specular: 0xffffff, shininess: 320 });
       const core = new THREE.Mesh(new THREE.SphereGeometry(def.r, 64, 64), cMat); grp.add(core);
       grp.add(new THREE.Mesh(new THREE.SphereGeometry(def.r + .02, 26, 26), new THREE.MeshBasicMaterial({ color: def.hw, wireframe: true, transparent: true, opacity: .06 })));
       if (def.hasGrid) grp.add(new THREE.Mesh(new THREE.SphereGeometry(def.r + .08, 14, 14), new THREE.MeshBasicMaterial({ color: def.hx, wireframe: true, transparent: true, opacity: .22 })));
+      // Gloss highlight sphere — positioned upper-right to simulate specular sheen
+      const glossMat = new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: .32 });
+      const gloss = new THREE.Mesh(new THREE.SphereGeometry(def.r * .68, 24, 24), glossMat);
+      gloss.position.set(def.r * .4, def.r * .34, def.r * .62); grp.add(gloss);
+      // Soft color overlay matching planet hue
+      const glossMat2 = new THREE.MeshBasicMaterial({ color: def.hw, transparent: true, opacity: .20 });
+      const gloss2 = new THREE.Mesh(new THREE.SphereGeometry(def.r * .52, 16, 16), glossMat2);
+      gloss2.position.set(def.r * .28, -def.r * .22, def.r * .7); grp.add(gloss2);
       const a1 = new THREE.MeshBasicMaterial({ color: def.hx, transparent: true, opacity: .12, side: THREE.BackSide }); grp.add(new THREE.Mesh(new THREE.SphereGeometry(def.r + .4, 28, 28), a1));
       const a2 = new THREE.MeshBasicMaterial({ color: def.hx, transparent: true, opacity: .05, side: THREE.BackSide }); grp.add(new THREE.Mesh(new THREE.SphereGeometry(def.r + .9, 28, 28), a2));
       (def.rings || []).forEach(ring => {
@@ -1786,29 +1798,49 @@ const Market = ({ onBriefPost }) => {
           {tab === 'designers' && (
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(260px,1fr))', gap: 16, paddingTop: 8 }}>
               {DESIGNERS_DATA.map(d => {
-                const dUser = { av: d.av, name: d.full, full: d.full, handle: d.name, role: d.role, on: d.on, projects: d.projects, followers: d.followers, color: '#a855f7' };
+                const dUser = { av: d.av, name: d.full, full: d.full, handle: d.name, role: d.role, on: d.on, projects: d.projects, followers: d.followers, tags: d.tags, color: '#a855f7' };
                 const isFollowed = !!followed[d.name];
                 return (
-                  <div key={d.name} className="gl" style={{ borderRadius: 18, padding: 22, display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', gap: 12 }}>
-                    <div onClick={() => setProfileUser(dUser)} style={{ cursor: 'pointer' }}>
-                      <Av src={d.av} sz={64} on={d.on} />
+                  <div key={d.name} className="gl" style={{ borderRadius: 18, padding: 22, display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', gap: 12, transition: 'transform .22s,box-shadow .22s' }}
+                    onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-4px)'; e.currentTarget.style.boxShadow = '0 20px 50px rgba(168,85,247,.2)'; }}
+                    onMouseLeave={e => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = ''; }}>
+                    <div onClick={() => setProfileUser(dUser)} style={{ cursor: 'pointer', transition: 'transform .18s' }}
+                      onMouseEnter={e => e.currentTarget.style.transform = 'scale(1.08)'}
+                      onMouseLeave={e => e.currentTarget.style.transform = 'scale(1)'}>
+                      <Av src={d.av} sz={72} on={d.on} />
                     </div>
-                    <div style={{ fontSize: 15, fontWeight: 800, cursor: 'pointer' }} onClick={() => setProfileUser(dUser)}>{d.full}</div>
-                    <div style={{ fontSize: 11, color: 'var(--mu)' }}>{d.role}</div>
+                    <div style={{ fontSize: 15, fontWeight: 800, cursor: 'pointer', transition: 'all .2s', display: 'flex', alignItems: 'center', gap: 5 }}
+                      onClick={() => setProfileUser(dUser)}
+                      onMouseEnter={e => { e.currentTarget.style.color = '#a855f7'; e.currentTarget.style.textDecoration = 'underline'; }}
+                      onMouseLeave={e => { e.currentTarget.style.color = 'white'; e.currentTarget.style.textDecoration = 'none'; }}>
+                      {d.full} <ExternalLink size={11} color="#a855f7" style={{ opacity: 0.6 }} />
+                    </div>
+                    <div style={{ fontSize: 11, color: '#a855f7', fontWeight: 600, fontFamily: 'JetBrains Mono' }}>{d.role}</div>
                     <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', justifyContent: 'center' }}>{d.tags.map(t => <Bdg key={t} color="#a855f7" ch={t} />)}</div>
                     <div style={{ display: 'flex', gap: 16, padding: '10px 0', borderTop: '1px solid var(--br)', borderBottom: '1px solid var(--br)', width: '100%', justifyContent: 'center' }}>
                       <div><div className="O" style={{ fontSize: 17, fontWeight: 900, color: '#22d3ee' }}>{d.projects}</div><div style={{ fontSize: 9, color: 'var(--mu)' }}>Projects</div></div>
                       <div style={{ width: 1, background: 'var(--br)' }} />
                       <div><div className="O" style={{ fontSize: 17, fontWeight: 900, color: '#a855f7' }}>{d.followers}</div><div style={{ fontSize: 9, color: 'var(--mu)' }}>Followers</div></div>
                     </div>
-                    <div style={{ display: 'flex', gap: 7, width: '100%' }}>
-                      <button onClick={() => authCheck(() => { setFollowed(f => ({ ...f, [d.name]: !f[d.name] })); showToast(!followed[d.name] ? `Following ${d.full} ✓` : `Unfollowed ${d.full}`, '#10b981'); })}
-                        style={{ flex: 1, padding: '6px 10px', borderRadius: 8, border: `1px solid ${isFollowed ? 'rgba(16,185,129,.4)' : 'rgba(255,255,255,.15)'}`, background: isFollowed ? 'rgba(16,185,129,.1)' : 'rgba(255,255,255,.04)', cursor: 'pointer', color: isFollowed ? '#10b981' : 'rgba(255,255,255,.7)', fontSize: 11, fontWeight: 700, fontFamily: 'Rajdhani', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5, transition: 'all .2s' }}>
+                    <div style={{ display: 'flex', gap: 8, width: '100%' }}>
+                      {/* Follow button */}
+                      <button
+                        type="button"
+                        onClick={e => { e.stopPropagation(); setFollowed(f => ({ ...f, [d.name]: !f[d.name] })); showToast(!isFollowed ? `Following ${d.full} ✓` : `Unfollowed ${d.full}`, '#10b981'); }}
+                        style={{ flex: 1, padding: '8px 10px', borderRadius: 10, border: `1px solid ${isFollowed ? '#10b981' : 'rgba(255,255,255,.2)'}`, background: isFollowed ? 'rgba(16,185,129,.14)' : 'rgba(255,255,255,.04)', cursor: 'pointer', color: isFollowed ? '#10b981' : 'rgba(255,255,255,.75)', fontSize: 11, fontWeight: 700, fontFamily: 'Rajdhani', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5, transition: 'all .22s' }}
+                        onMouseEnter={e => { e.currentTarget.style.background = isFollowed ? 'rgba(16,185,129,.25)' : 'rgba(168,85,247,.15)'; e.currentTarget.style.borderColor = isFollowed ? '#10b981' : 'rgba(168,85,247,.6)'; e.currentTarget.style.color = isFollowed ? '#10b981' : '#c084fc'; e.currentTarget.style.transform = 'translateY(-2px)'; e.currentTarget.style.boxShadow = '0 6px 18px rgba(168,85,247,.22)'; }}
+                        onMouseLeave={e => { e.currentTarget.style.background = isFollowed ? 'rgba(16,185,129,.14)' : 'rgba(255,255,255,.04)'; e.currentTarget.style.borderColor = isFollowed ? '#10b981' : 'rgba(255,255,255,.2)'; e.currentTarget.style.color = isFollowed ? '#10b981' : 'rgba(255,255,255,.75)'; e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = ''; }}>
                         {isFollowed ? <><Check size={11} />Following</> : <><UserPlus size={11} />Follow</>}
                       </button>
-                      <button className="SB" style={{ flex: 1, padding: '6px', borderRadius: 8, border: 'none', cursor: 'pointer', color: 'white', fontSize: 11, fontWeight: 700, fontFamily: 'Rajdhani' }}
-                        onClick={() => setShowGetInTouch({ cr: d.name, crFull: d.full, price: 'Negotiable', serviceItems: null, av: d.av })}>
-                        Get in Touch
+                      {/* Get in Touch button */}
+                      <button
+                        type="button"
+                        onClick={e => { e.stopPropagation(); setShowGetInTouch({ cr: d.name, crFull: d.full, price: 'Negotiable', serviceItems: null, av: d.av }); }}
+                        className="SB"
+                        style={{ flex: 1, padding: '8px', borderRadius: 10, border: 'none', cursor: 'pointer', color: 'white', fontSize: 11, fontWeight: 700, fontFamily: 'Rajdhani', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5, transition: 'transform .2s,box-shadow .2s,filter .2s' }}
+                        onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-2px) scale(1.05)'; e.currentTarget.style.boxShadow = '0 10px 28px rgba(34,211,238,.45)'; e.currentTarget.style.filter = 'brightness(1.2)'; }}
+                        onMouseLeave={e => { e.currentTarget.style.transform = 'translateY(0) scale(1)'; e.currentTarget.style.boxShadow = ''; e.currentTarget.style.filter = ''; }}>
+                        <MessageSquare size={11} />Get in Touch
                       </button>
                     </div>
                   </div>
@@ -1992,6 +2024,13 @@ const UserProfileModal = ({ user, onClose, followed, onFollow, earnedBadges = []
   const userProjects = MKT.filter(m => m.crFull === user?.name || m.cr === user?.handle || m.cr === user?.name).slice(0, 8);
   const showWork = userProjects.length > 0 ? userProjects : MKT.slice(2, 8);
 
+  // Lock body scroll
+  React.useEffect(() => {
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => { document.body.style.overflow = prev; };
+  }, []);
+
   React.useEffect(() => {
     const t = setInterval(() => setCarouselIdx(i => (i + 1) % Math.min(showWork.length, 4)), 2600);
     return () => clearInterval(t);
@@ -2009,7 +2048,7 @@ const UserProfileModal = ({ user, onClose, followed, onFollow, earnedBadges = []
   const color = user.color || '#22d3ee';
 
   return (
-    <div style={{ position: 'fixed', inset: 0, zIndex: 450, background: 'rgba(0,0,0,.86)', backdropFilter: 'blur(22px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }} onClick={onClose}>
+    <div style={{ position: 'fixed', inset: 0, zIndex: 1000, background: 'rgba(0,0,0,.86)', backdropFilter: 'blur(22px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }} onClick={onClose}>
       <div style={{ background: 'rgba(8,12,26,.99)', borderRadius: 28, border: '1px solid rgba(255,255,255,.1)', width: '100%', maxWidth: 860, maxHeight: '90vh', overflow: 'hidden', animation: 'sU .35s cubic-bezier(.22,1,.36,1)', display: 'flex', flexDirection: 'column', boxShadow: `0 0 0 1px rgba(255,255,255,.06),0 32px 80px rgba(0,0,0,.8),0 0 60px ${color}18` }} onClick={e => e.stopPropagation()}>
 
         {/* ── BANNER ── */}
@@ -2253,8 +2292,8 @@ const AuthModal = ({ onClose, onAuth }) => {
   };
 
   return (
-    <div style={{ position: 'fixed', inset: 0, zIndex: 400, background: 'rgba(0,0,0,.82)', backdropFilter: 'blur(16px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }} onClick={onClose}>
-      <div style={{ background: 'rgba(8,12,26,.98)', borderRadius: 24, border: '1px solid rgba(255,255,255,.1)', width: '100%', maxWidth: 460, animation: 'sU .3s ease', overflow: 'hidden', boxShadow: '0 32px 80px rgba(0,0,0,.7)' }} onClick={e => e.stopPropagation()}>
+    <div style={{ position: 'fixed', inset: 0, zIndex: 900, background: 'rgba(0,0,0,.88)', backdropFilter: 'blur(20px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }} onClick={onClose}>
+      <div style={{ background: 'rgba(8,12,26,.99)', borderRadius: 24, border: '1px solid rgba(34,211,238,.25)', width: '100%', maxWidth: 460, animation: 'sU .3s ease', overflow: 'hidden', boxShadow: '0 0 0 1px rgba(34,211,238,.08),0 32px 80px rgba(0,0,0,.85),0 0 60px rgba(34,211,238,.1)' }} onClick={e => e.stopPropagation()}>
 
         {/* STEP 1 — Account details */}
         {mode === 'signup' && (
@@ -2263,9 +2302,9 @@ const AuthModal = ({ onClose, onAuth }) => {
               <div className="O" style={{ fontSize: 22, fontWeight: 900, marginBottom: 6, background: 'linear-gradient(135deg,#22d3ee,#a855f7,#ec4899)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>Join VibeWorld</div>
               <div style={{ fontSize: 12, color: 'var(--mu)' }}>Create your account to start vibing</div>
             </div>
-            {['Name', 'Email', 'Password'].map((f, i) => (
-              <input key={f} type={i === 2 ? 'password' : 'text'} placeholder={f}
-                value={form[f.toLowerCase()]} onChange={e => { setForm(p => ({ ...p, [f.toLowerCase()]: e.target.value })); setErr(''); }}
+            {[['Name', 'text', 'name'], ['Email', 'email', 'email'], ['Password', 'password', 'pass']].map(([label, type, key]) => (
+              <input key={key} type={type} placeholder={label}
+                value={form[key]} onChange={e => { setForm(p => ({ ...p, [key]: e.target.value })); setErr(''); }}
                 style={{ width: '100%', marginBottom: 10, padding: '12px 14px', borderRadius: 10, background: 'rgba(255,255,255,.05)', border: '1px solid rgba(255,255,255,.1)', color: 'white', fontSize: 13, fontFamily: 'Rajdhani', outline: 'none' }} />
             ))}
             {err && <div style={{ padding: '8px 12px', borderRadius: 8, background: 'rgba(236,72,153,.1)', border: '1px solid rgba(236,72,153,.25)', fontSize: 11, color: '#ec4899', marginBottom: 10 }}>{err}</div>}
@@ -2368,8 +2407,15 @@ const GetInTouchCard = ({ service, onClose }) => {
   const [budget, setBudget] = React.useState('');
   const [openBudget, setOpenBudget] = React.useState(false);
 
+  // Lock body scroll while modal is open
+  React.useEffect(() => {
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => { document.body.style.overflow = prev; };
+  }, []);
+
   return (
-    <div style={{ position: 'fixed', inset: 0, zIndex: 400, background: 'rgba(0,0,0,.75)', backdropFilter: 'blur(12px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }} onClick={onClose}>
+    <div style={{ position: 'fixed', inset: 0, zIndex: 500, background: 'rgba(0,0,0,.75)', backdropFilter: 'blur(12px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20, overscrollBehavior: 'none' }} onClick={onClose} onWheel={e => e.stopPropagation()} onTouchMove={e => e.stopPropagation()}>
       <div style={{ background: 'rgba(8,12,26,.98)', borderRadius: 20, border: '1px solid rgba(255,255,255,.1)', width: 420, maxHeight: '82vh', overflow: 'hidden', animation: 'sU .3s ease', display: 'flex', flexDirection: 'column', boxShadow: '0 24px 80px rgba(0,0,0,.7)' }} onClick={e => e.stopPropagation()}>
         {/* Header */}
         <div style={{ padding: '18px 20px', borderBottom: '1px solid var(--br)', flexShrink: 0 }}>
@@ -3067,7 +3113,7 @@ const Community = ({ extraPosts }) => {
       <WorldBanner title="VIBE COMMUNITY" label="// NEURAL NETWORK ACTIVE" color1="#10b981" color2="#22d3ee" height={120} />
 
       {/* Feed filter tabs */}
-      <div style={{ display: 'flex', gap: 3, marginBottom: 18, background: 'rgba(255,255,255,.04)', borderRadius: 11, padding: 4, alignSelf: 'flex-start', width: 'fit-content' }}>
+      <div style={{ display: 'flex', gap: 3, marginBottom: 14, background: 'rgba(255,255,255,.04)', borderRadius: 11, padding: 4, alignSelf: 'flex-start', width: 'fit-content' }}>
         {[['discover', Globe, 'Discover'], ['following', Users, 'Following'], ['all', Layers, 'All']].map(([id, Icon, l]) => (
           <button key={id} onClick={() => setFeedFilter(id)} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '7px 18px', borderRadius: 8, border: 'none', cursor: 'pointer', fontWeight: 700, fontSize: 12, fontFamily: 'Rajdhani', transition: 'all .2s', background: feedFilter === id ? 'rgba(255,255,255,.12)' : 'transparent', color: feedFilter === id ? 'white' : 'rgba(255,255,255,.4)' }}>
             <Icon size={13} />{l}
@@ -3075,13 +3121,17 @@ const Community = ({ extraPosts }) => {
           </button>
         ))}
       </div>
-      {feedFilter === 'all' && <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '7px 14px', borderRadius: 9, background: 'rgba(34,211,238,.06)', border: '1px solid rgba(34,211,238,.12)', marginBottom: 14, fontSize: 11, color: 'rgba(34,211,238,.7)', fontFamily: 'JetBrains Mono', position: 'sticky', top: 70, zIndex: 50, backdropFilter: 'blur(12px)' }}>
-        <div style={{ width: 10, height: 10, borderRadius: 2, background: 'linear-gradient(135deg,#22d3ee,#a855f7)', flexShrink: 0 }} /> Posts from people you follow have a <span style={{ color: '#22d3ee', fontWeight: 700, borderBottom: '1px solid #22d3ee' }}>cyan left border</span>
-      </div>}
 
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 285px', gap: 18 }}>
+      {/* "Following" banner — sticky with opaque bg so posts don't bleed through */}
+      {feedFilter === 'all' && (
+        <div style={{ position: 'sticky', top: 64, zIndex: 120, background: 'rgba(3,7,18,.99)', backdropFilter: 'blur(24px)', borderBottom: '1px solid rgba(34,211,238,.2)', marginLeft: -22, marginRight: -22, padding: '9px 22px', marginBottom: 14, display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, color: 'rgba(34,211,238,.8)', fontFamily: 'JetBrains Mono', boxShadow: '0 4px 20px rgba(3,7,18,.95)' }}>
+          <div style={{ width: 10, height: 10, borderRadius: 2, background: 'linear-gradient(135deg,#22d3ee,#a855f7)', flexShrink: 0 }} /> Posts from people you follow have a <span style={{ color: '#22d3ee', fontWeight: 700, borderBottom: '1px solid rgba(34,211,238,.5)' }}>cyan left border</span>
+        </div>
+      )}
+
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 285px', gap: 18, alignItems: 'start' }}>
         {/* Main feed */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 14, minWidth: 0 }}>
           <CreatePostBox onPost={addPost} />
           {hashFil && (
             <div style={{ display: 'flex', alignItems: 'center', gap: 9, padding: '8px 14px', borderRadius: 10, background: 'rgba(245,158,11,.08)', border: '1px solid rgba(245,158,11,.2)' }}>
@@ -3111,7 +3161,8 @@ const Community = ({ extraPosts }) => {
         </div>
 
         {/* Sidebar — sticky so it stays while feed scrolls */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 13, position: 'sticky', top: 80, alignSelf: 'flex-start', maxHeight: 'calc(100vh - 100px)', overflowY: 'auto', overscrollBehavior: 'contain', scrollbarWidth: 'none' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 13, position: 'sticky', top: 80, alignSelf: 'flex-start', maxHeight: 'calc(100vh - 100px)', overflowY: 'auto', overscrollBehavior: 'contain', scrollbarWidth: 'none', msOverflowStyle: 'none', zIndex: 10 }}>
+          <style>{`.sidebar-scroll::-webkit-scrollbar{display:none}`}</style>
           <TrendingSidebar posts={posts} hashFil={hashFil} setHashFil={setHashFil} />
           <CreatorsSidebar posts={posts} followed={followed} setFollowed={setFollowed} showToast={showToast} />
           <BadgeSidebar userStats={userStats} earnedBadges={earnedBadges} />
@@ -3681,10 +3732,44 @@ export default function VibeWorld() {
                     </div>
                   )}
                 </div>
-                <button onClick={() => setShowWishlist(w => !w)} style={{ position: 'relative', padding: 7, background: 'none', border: 'none', cursor: 'pointer', color: showWishlist ? '#a855f7' : 'rgba(255,255,255,.55)', transition: 'color .2s' }} title="Wishlist">
-                  <Bookmark size={17} fill={showWishlist ? '#a855f7' : 'none'} color={showWishlist ? '#a855f7' : 'rgba(255,255,255,.55)'} />
-                  {globalWish.length > 0 && <div style={{ position: 'absolute', top: 3, right: 3, width: 13, height: 13, borderRadius: '50%', background: '#a855f7', fontSize: 7, fontWeight: 800, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white' }}>{globalWish.length}</div>}
-                </button>
+                {/* Bookmark / Wishlist — hover to open */}
+                <div style={{ position: 'relative' }} onMouseEnter={() => setShowWishlist(true)} onMouseLeave={() => setShowWishlist(false)}>
+                  <button style={{ position: 'relative', padding: 7, background: 'none', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: showWishlist ? '#a855f7' : 'rgba(255,255,255,.55)', transition: 'color .2s' }}>
+                    <Bookmark size={17} fill={showWishlist ? '#a855f7' : 'none'} color={showWishlist ? '#a855f7' : 'rgba(255,255,255,.55)'} />
+                    {globalWish.length > 0 && <div style={{ position: 'absolute', top: 3, right: 3, width: 13, height: 13, borderRadius: '50%', background: '#a855f7', fontSize: 7, fontWeight: 800, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white' }}>{globalWish.length}</div>}
+                  </button>
+                  {showWishlist && (
+                    <div className="gl2" style={{ position: 'absolute', top: '100%', right: 0, width: 310, borderRadius: 15, zIndex: 300, overflow: 'hidden', border: '1px solid var(--br)', animation: 'hoverMenuSlide .18s ease', boxShadow: '0 16px 48px rgba(0,0,0,.6)' }}>
+                      <div style={{ padding: '13px 15px', borderBottom: '1px solid var(--br)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                        <span className="O" style={{ fontSize: 12, fontWeight: 700 }}>Saved Items</span>
+                        <span style={{ fontSize: 9, color: 'var(--mu)', fontFamily: 'JetBrains Mono' }}>{globalWish.length} items</span>
+                      </div>
+                      {globalWish.length === 0 ? (
+                        <div style={{ padding: '24px', textAlign: 'center', color: 'var(--mu)', fontSize: 11 }}>
+                          <Bookmark size={24} style={{ opacity: .3, margin: '0 auto 8px', display: 'block' }} />
+                          No saved items yet. Bookmark products & posts!
+                        </div>
+                      ) : (
+                        <div style={{ maxHeight: 260, overflowY: 'auto', overscrollBehavior: 'contain' }}>
+                          {globalWish.slice(0, 5).map((id, i) => {
+                            const item = MKT.find(m => m.id === id);
+                            return item ? (
+                              <div key={id} style={{ padding: '9px 14px', borderBottom: '1px solid rgba(255,255,255,.04)', display: 'flex', alignItems: 'center', gap: 9, cursor: 'pointer', transition: 'background .15s' }}
+                                onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,.04)'}
+                                onMouseLeave={e => e.currentTarget.style.background = 'none'}>
+                                <img src={item.img} alt="" style={{ width: 36, height: 36, borderRadius: 8, objectFit: 'cover', flexShrink: 0 }} />
+                                <div style={{ flex: 1, overflow: 'hidden' }}>
+                                  <div style={{ fontSize: 11, fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.title}</div>
+                                  <div style={{ fontSize: 9, color: '#22d3ee', fontFamily: 'JetBrains Mono' }}>{item.price}</div>
+                                </div>
+                              </div>
+                            ) : null;
+                          })}
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
                 {/* User avatar with hover dropdown */}
                 <div style={{ position: 'relative' }} onMouseEnter={() => setUserMenuOpen(true)} onMouseLeave={() => setUserMenuOpen(false)}>
                   {globalAuthed ? (
@@ -3718,8 +3803,8 @@ export default function VibeWorld() {
               </div>
             </header>
             {showGlobalAuth && <AuthModal onClose={() => setShowGlobalAuth(false)} onAuth={(info) => { setGlobalAuthed(true); setGlobalUser(info); }} />}
-            {showWishlist && <WishlistPanel wish={globalWish} bookmarkedPosts={globalBm} followedCreators={globalFollowed} onClose={() => setShowWishlist(false)} />}
-            <main key={secKey} style={{ paddingTop: 64, animation: 'sU .4s cubic-bezier(.22,1,.36,1) forwards', background: 'transparent', minHeight: '100vh' }}>{renderSec()}</main>
+
+            <main key={secKey} style={{ paddingTop: 64, background: 'transparent', minHeight: '100vh' }}><div style={{ animation: 'sU .4s cubic-bezier(.22,1,.36,1)' }}>{renderSec()}</div></main>
           </div>
         )}
 
